@@ -58,8 +58,9 @@ unsigned long lastTimeBotRan;
 #define PCLK_GPIO_NUM     22
 
 //============================> ultrasonic sensor 
-const int trigPin = 5;
-const int echoPin = 18;
+#define buzzerPin 14
+const int trigPin = 13;
+const int echoPin = 15;
 unsigned long previousMillis_1 = 0;
 const long interval_1 = 5000;
 
@@ -69,8 +70,40 @@ long duration;
 float distanceCm;
 bool personIn = false ;
 bool objFlag = false ;
+//============================================= Doorlock related VARIABLES==============================
+#define LOCK 12
+boolean lockState = 0;
+boolean buzzState = 0 ; 
+String r_msg = "";
+
+String unlockDoor(){  
+ if (lockState == 0) {
+  digitalWrite(LOCK, HIGH);
+
+  
+  lockState = 1;
+  delay(100);
+  return "Door Unlocked. /lock";
+ }
+ else{
+  return "Door Already Unlocked. /lock";
+ }  
+}
+String lockDoor(){
+ if (lockState == 1) {
+  digitalWrite(LOCK, LOW);
+
+  lockState = 0;
+  delay(100);
+  return "Door Locked. /unlock";
+ }
+ else{
+  return "Door Already Locked. /unlock";
+ }
+}
 
 
+//=========================================================================
 void configInitCamera(){
   camera_config_t config;
   config.ledc_channel = LEDC_CHANNEL_0;
@@ -145,21 +178,21 @@ void handleNewMessages(int numNewMessages) {
       flashState = !flashState;
       digitalWrite(FLASH_LED_PIN, flashState);
       Serial.println("Change flash LED state");
+      reply = "flash :"+flashState ; 
+      bot.sendMessage(CHAT_ID, reply, "");
     }
     if (text == "/photo") {
       sendPhoto = true;
       Serial.println("New photo request");
     }
-    
-    if (text == "/lock") {
-      sendPhoto = true;
-      Serial.println("Lock request");
+    if (text == "/lock"){
+      String r_msg = lockDoor();
+      bot.sendMessage(CHAT_ID, r_msg, "");
     }
-    if (text == "/unlock") {
-      sendPhoto = true;
-      Serial.println("unlock request");
+    if (text == "/unlock"){
+      String r_msg = unlockDoor();
+      bot.sendMessage(CHAT_ID, r_msg, "");
     }
-
     
     if (text == "/lockstatus") {
       sendPhoto = true;
@@ -188,11 +221,16 @@ void handleNewMessages(int numNewMessages) {
       reply = "";
     }
     if(text == "/buzz"){
-      
+      buzzState = !buzzState;
+      digitalWrite(buzzerPin, buzzState);
+      Serial.println("Change buzzer state");
+      reply = "buzzer State:"+buzzState ; 
+      bot.sendMessage(CHAT_ID, reply, "");
+      reply = "";
     }
     if(text= "/restart"){
        ESP.restart();
-       delay(500);
+       delay(1000);
     }
   }
 }
@@ -285,8 +323,9 @@ void setup(){
 
   // Set LED Flash as output
   pinMode(FLASH_LED_PIN, OUTPUT);
+  pinMode(buzzerPin, OUTPUT);
   digitalWrite(FLASH_LED_PIN, flashState);
-
+  digitalWrite(buzzerPin,buzzState);
   // Config and init the camera
   configInitCamera();
 
@@ -316,19 +355,19 @@ void loop() {
   digitalWrite(trigPin, HIGH);
   delayMicroseconds(10);
   digitalWrite(trigPin, LOW);
-  
   // Reads the echoPin, returns the sound wave travel time in microseconds
-  duration = pulseIn(echoPin, HIGH);
-  
+  duration = pulseIn(echoPin, HIGH); 
   // Calculate the distance
   distanceCm = duration * SOUND_SPEED/2;
-  
   // Prints the distance in the Serial Monitor
   Serial.print("Distance (cm): ");
   Serial.println(distanceCm);
   delay(250);
   if (distanceCm < 90){
     objFlag = true;
+    reply = "Distance:"+String(distanceCm) ; 
+    bot.sendMessage(CHAT_ID, reply, "");
+    reply = "";
   }
   if(objFlag && (!personIn)){
     personIn = true ;
