@@ -2,9 +2,6 @@
   Ganesh Kumar Jammu
   Project Name: Smart Door Lock system based on IoT.
   Complete project details at github user:ganeshkumarjammu
-    
-  The above copyright notice and this permission notice shall be included in all
-  copies or substantial portions of the Software.
 */
 
 #include <Arduino.h>
@@ -16,8 +13,8 @@
 #include <UniversalTelegramBot.h>
 #include <ArduinoJson.h>
 
-const char* ssid = "Texoham";
-const char* password = "S0ham@2017";
+const char* ssid = "Ganesh";
+const char* password = "ganesh2000";
 
 // Initialize Telegram BOT
 String BOTtoken = "5734241556:AAGPSO1L7H4N8L8ViO8Js91W1wqrxR_1AQo";  // your Bot Token (Get from Botfather)
@@ -28,6 +25,8 @@ String BOTtoken = "5734241556:AAGPSO1L7H4N8L8ViO8Js91W1wqrxR_1AQo";  // your Bot
 String CHAT_ID = "1260116757";
 
 bool sendPhoto = false;
+
+String reply = "";
 
 WiFiClientSecure clientTCP;
 UniversalTelegramBot bot(BOTtoken, clientTCP);
@@ -57,6 +56,19 @@ unsigned long lastTimeBotRan;
 #define VSYNC_GPIO_NUM    25
 #define HREF_GPIO_NUM     23
 #define PCLK_GPIO_NUM     22
+
+//============================> ultrasonic sensor 
+const int trigPin = 5;
+const int echoPin = 18;
+unsigned long previousMillis_1 = 0;
+const long interval_1 = 5000;
+
+//define sound speed in cm/uS
+#define SOUND_SPEED 0.034
+long duration;
+float distanceCm;
+bool personIn = false ;
+bool objFlag = false ;
 
 
 void configInitCamera(){
@@ -112,7 +124,7 @@ void handleNewMessages(int numNewMessages) {
 
   for (int i = 0; i < numNewMessages; i++) {
     String chat_id = String(bot.messages[i].chat_id);
-    if (chat_id != CHAT_ID){
+    if (chat_id != CHAT_ID){ 
       bot.sendMessage(chat_id, "Unauthorized user", "");
       continue;
     }
@@ -137,6 +149,50 @@ void handleNewMessages(int numNewMessages) {
     if (text == "/photo") {
       sendPhoto = true;
       Serial.println("New photo request");
+    }
+    
+    if (text == "/lock") {
+      sendPhoto = true;
+      Serial.println("Lock request");
+    }
+    if (text == "/unlock") {
+      sendPhoto = true;
+      Serial.println("unlock request");
+    }
+
+    
+    if (text == "/lockstatus") {
+      sendPhoto = true;
+      Serial.println("lockstatus request");
+       if(lockState){
+        reply = "Door is Locked";
+      }
+      else{
+        reply = "Door is Unlocked";
+      }
+      bot.sendMessage(CHAT_ID, reply, "");
+      Serial.println(reply);
+      reply = "";
+    }
+    if (text == "/flashstatus") {
+      sendPhoto = true;
+      if(flashState){
+        reply = "Flash is ON";
+      }
+      else{
+        reply = "Flash is OFF";
+      }
+      bot.sendMessage(CHAT_ID, reply, "");
+      Serial.println("flash status request");
+      Serial.println(reply);
+      reply = "";
+    }
+    if(text == "/buzz"){
+      
+    }
+    if(text= "/restart"){
+       ESP.restart();
+       delay(500);
     }
   }
 }
@@ -248,9 +304,49 @@ void setup(){
   Serial.println();
   Serial.print("ESP32-CAM IP Address: ");
   Serial.println(WiFi.localIP()); 
+  digitalWrite(FLASH_LED_PIN, HIGH);
+  delay(500);
+  digitalWrite(FLASH_LED_PIN, LOW);
 }
 
 void loop() {
+  digitalWrite(trigPin, LOW);
+  delayMicroseconds(2);
+  // Sets the trigPin on HIGH state for 10 micro seconds
+  digitalWrite(trigPin, HIGH);
+  delayMicroseconds(10);
+  digitalWrite(trigPin, LOW);
+  
+  // Reads the echoPin, returns the sound wave travel time in microseconds
+  duration = pulseIn(echoPin, HIGH);
+  
+  // Calculate the distance
+  distanceCm = duration * SOUND_SPEED/2;
+  
+  // Prints the distance in the Serial Monitor
+  Serial.print("Distance (cm): ");
+  Serial.println(distanceCm);
+  delay(250);
+  if (distanceCm < 90){
+    objFlag = true;
+  }
+  if(objFlag && (!personIn)){
+    personIn = true ;
+    objFlag = false ;
+    Serial.println("Preparing photo 0: Object Detected");
+    sendPhotoTelegram();
+    }
+    else if(objFlag && personIn){
+    unsigned long currentMillis = millis();
+     if (currentMillis - previousMillis_1 >= interval_1) {
+         previousMillis_1 = millis();
+         personIn = false ;
+         objFlag = false ;
+         Serial.println("Preparing photo 1: Object Detected");
+         sendPhotoTelegram();
+      }      
+    }
+  
   if (sendPhoto) {
     Serial.println("Preparing photo");
     sendPhotoTelegram(); 
