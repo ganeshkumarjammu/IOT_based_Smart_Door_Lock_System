@@ -156,7 +156,7 @@ void setup(){
     delay(500);
   }
   lockDoor();
-  Serial.println("Succesfully Connected ");
+  Serial.println("Succesfully Connected  ");
   Serial.print("ESP32 IP Address: ");
   Serial.println(WiFi.localIP()); 
 }
