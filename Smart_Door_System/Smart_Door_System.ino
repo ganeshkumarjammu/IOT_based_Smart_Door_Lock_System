@@ -1,3 +1,4 @@
+
 #include <Arduino.h>
 #include <WiFi.h>
 #include <WiFiClientSecure.h>
@@ -36,7 +37,7 @@ int PIRstate = LOW; // we start, assuming no motion detected
 int val = 0;
 
 // the time we give the sensor to calibrate (approx. 10-60 secs according to datatsheet)
-const int calibrationTime = 30; // 30 secs
+const int calibrationTime = 3; // 30 secs
 
 //CAMERA_MODEL_AI_THINKER
 #define PWDN_GPIO_NUM     32
@@ -112,18 +113,14 @@ void handleNewMessages(int numNewMessages) {
   for (int i = 0; i < numNewMessages; i++) {
     String chat_id = String(bot.messages[i].chat_id);
     Serial.println(chat_id);
-     // Print the received message
-    String text = bot.messages[i].text;
-    Serial.println(text);
     if (chat_id != CHAT_ID) {
-//      bot.sendMessage(chat_id, "Unauthorized user", "");
-      Serial.println("unauthorised user");
+//     / bot.sendMessage(chat_id, "Unauthorized user", "");
       continue;
     }
-     text = bot.messages[i].text;
+
     // Print the received message
-//    String text = bot.messages[i].text;
-//    Serial.println(text);
+    String text = bot.messages[i].text;
+    Serial.println(text);
 
     String from_name = bot.messages[i].from_name;
     if ((text == "/start")||(text == "/start@Smart_Dora_bot")) {
@@ -138,7 +135,7 @@ void handleNewMessages(int numNewMessages) {
       digitalWrite(FLASH_LED_PIN, flashState);
       Serial.println("Change flash LED state");
     }
-    if ((text == "/photo")||(text == "/photo@Smart_Dora_bot")) {
+    if ((text == "/photo")||(text == "/photo@Smart_Dora_bot")){
       sendPhoto = true;
       Serial.println("New photo request");
     }
@@ -243,7 +240,7 @@ void setup() {
   Serial.println("Waiting for the sensor to warm up on first boot");
   delay(calibrationTime * 1000); // Time converted back to miliseconds
 
-  // Blink LED 3 times to indicate PIR sensor warmed up
+//   Blink LED 3 times to indicate PIR sensor warmed up
   digitalWrite(led, HIGH);
   delay(500);
   digitalWrite(led, LOW);
@@ -279,24 +276,6 @@ void setup() {
 void loop() {
   val = digitalRead(PIRsensor);
 
-  if (val == HIGH) {
-    digitalWrite(led, HIGH);
-    if (PIRstate == LOW) {
-      // we have just turned on because movement is detected
-      Serial.println("Motion detected!");
-      delay(500);
-      Serial.println("Sending photo to Telegram");
-      sendPhotoTelegram();
-      PIRstate = HIGH;
-    }
-  }
-  else {
-    digitalWrite(led, LOW);
-    if (PIRstate == HIGH) {
-      Serial.println("Motion ended!");
-      PIRstate = LOW;
-    }
-  }
   if (sendPhoto) {
     Serial.println("Preparing photo");
     digitalWrite(FLASH_LED_PIN, HIGH);
@@ -316,5 +295,22 @@ void loop() {
     }
     lastTimeBotRan = millis();
   }
-
+  if (val == HIGH) {
+   digitalWrite(led, HIGH);
+    if (PIRstate == LOW) {
+      // we have just turned on because movement is detected
+      Serial.println("Motion detected!");
+      delay(500);
+      Serial.println("Sending photo to Telegram");
+      sendPhotoTelegram();
+      PIRstate = HIGH;
+    }
+  }
+  else {
+    digitalWrite(led, LOW);
+    if (PIRstate == HIGH) {
+      Serial.println("Motion ended!");
+      PIRstate = LOW;
+    }
+  }
 }
