@@ -1,9 +1,3 @@
-/*
-  Ganesh Kumar Jammu
-  Project Name: Smart Door Lock system based on IoT.
-  Complete project details at github user:ganeshkumarjammu
-*/
-
 #include <Arduino.h>
 #include <WiFi.h>
 #include <WiFiClientSecure.h>
@@ -22,11 +16,9 @@ String BOTtoken = "5734241556:AAGPSO1L7H4N8L8ViO8Js91W1wqrxR_1AQo";  // your Bot
 // Use @myidbot to find out the chat ID of an individual or a group
 // Also note that you need to click "start" on a bot before it can
 // message you
-String CHAT_ID = "1260116757";
+String CHAT_ID = "-1001686432193";
 
 bool sendPhoto = false;
-
-String reply = "";
 
 WiFiClientSecure clientTCP;
 UniversalTelegramBot bot(BOTtoken, clientTCP);
@@ -37,6 +29,14 @@ bool flashState = LOW;
 //Checks for new messages every 1 second.
 int botRequestDelay = 1000;
 unsigned long lastTimeBotRan;
+
+const int PIRsensor = 13;
+const int led = 12;
+int PIRstate = LOW; // we start, assuming no motion detected
+int val = 0;
+
+// the time we give the sensor to calibrate (approx. 10-60 secs according to datatsheet)
+const int calibrationTime = 30; // 30 secs
 
 //CAMERA_MODEL_AI_THINKER
 #define PWDN_GPIO_NUM     32
@@ -57,54 +57,8 @@ unsigned long lastTimeBotRan;
 #define HREF_GPIO_NUM     23
 #define PCLK_GPIO_NUM     22
 
-//============================> ultrasonic sensor 
-#define buzzerPin 14
-const int trigPin = 13;
-const int echoPin = 15;
-unsigned long previousMillis_1 = 0;
-const long interval_1 = 5000;
 
-//define sound speed in cm/uS
-#define SOUND_SPEED 0.034
-long duration;
-float distanceCm;
-bool personIn = false ;
-bool objFlag = false ;
-//============================================= Doorlock related VARIABLES==============================
-#define LOCK 12
-boolean lockState = 0;
-boolean buzzState = 0 ; 
-String r_msg = "";
-
-String unlockDoor(){  
- if (lockState == 0) {
-  digitalWrite(LOCK, HIGH);
-
-  
-  lockState = 1;
-  delay(100);
-  return "Door Unlocked. /lock";
- }
- else{
-  return "Door Already Unlocked. /lock";
- }  
-}
-String lockDoor(){
- if (lockState == 1) {
-  digitalWrite(LOCK, LOW);
-
-  lockState = 0;
-  delay(100);
-  return "Door Locked. /unlock";
- }
- else{
-  return "Door Already Locked. /unlock";
- }
-}
-
-
-//=========================================================================
-void configInitCamera(){
+void configInitCamera() {
   camera_config_t config;
   config.ledc_channel = LEDC_CHANNEL_0;
   config.ledc_timer = LEDC_TIMER_0;
@@ -128,7 +82,7 @@ void configInitCamera(){
   config.pixel_format = PIXFORMAT_JPEG;
 
   //init with high specs to pre-allocate larger buffers
-  if(psramFound()){
+  if (psramFound()) {
     config.frame_size = FRAMESIZE_UXGA;
     config.jpeg_quality = 10;  //0-63 lower number means higher quality
     config.fb_count = 2;
@@ -137,7 +91,7 @@ void configInitCamera(){
     config.jpeg_quality = 12;  //0-63 lower number means higher quality
     config.fb_count = 1;
   }
-  
+
   // camera init
   esp_err_t err = esp_camera_init(&config);
   if (err != ESP_OK) {
@@ -157,80 +111,36 @@ void handleNewMessages(int numNewMessages) {
 
   for (int i = 0; i < numNewMessages; i++) {
     String chat_id = String(bot.messages[i].chat_id);
-    if (chat_id != CHAT_ID){ 
-      bot.sendMessage(chat_id, "Unauthorized user", "");
-      continue;
-    }
-    
-    // Print the received message
+    Serial.println(chat_id);
+     // Print the received message
     String text = bot.messages[i].text;
     Serial.println(text);
-    
+    if (chat_id != CHAT_ID) {
+//      bot.sendMessage(chat_id, "Unauthorized user", "");
+      Serial.println("unauthorised user");
+      continue;
+    }
+     text = bot.messages[i].text;
+    // Print the received message
+//    String text = bot.messages[i].text;
+//    Serial.println(text);
+
     String from_name = bot.messages[i].from_name;
-    if (text == "/start") {
+    if ((text == "/start")||(text == "/start@Smart_Dora_bot")) {
       String welcome = "Welcome , " + from_name + "\n";
       welcome += "Use the following commands to interact with the ESP32-CAM \n";
       welcome += "/photo : takes a new photo\n";
       welcome += "/flash : toggles flash LED \n";
       bot.sendMessage(CHAT_ID, welcome, "");
     }
-    if (text == "/flash") {
+    if ((text == "/flash")||(text == "/flash@Smart_Dora_bot")) {
       flashState = !flashState;
       digitalWrite(FLASH_LED_PIN, flashState);
       Serial.println("Change flash LED state");
-      reply = "flash :"+flashState ; 
-      bot.sendMessage(CHAT_ID, reply, "");
     }
-    if (text == "/photo") {
+    if ((text == "/photo")||(text == "/photo@Smart_Dora_bot")) {
       sendPhoto = true;
       Serial.println("New photo request");
-    }
-    if (text == "/lock"){
-      String r_msg = lockDoor();
-      bot.sendMessage(CHAT_ID, r_msg, "");
-    }
-    if (text == "/unlock"){
-      String r_msg = unlockDoor();
-      bot.sendMessage(CHAT_ID, r_msg, "");
-    }
-    
-    if (text == "/lockstatus") {
-      sendPhoto = true;
-      Serial.println("lockstatus request");
-       if(lockState){
-        reply = "Door is Locked";
-      }
-      else{
-        reply = "Door is Unlocked";
-      }
-      bot.sendMessage(CHAT_ID, reply, "");
-      Serial.println(reply);
-      reply = "";
-    }
-    if (text == "/flashstatus") {
-      sendPhoto = true;
-      if(flashState){
-        reply = "Flash is ON";
-      }
-      else{
-        reply = "Flash is OFF";
-      }
-      bot.sendMessage(CHAT_ID, reply, "");
-      Serial.println("flash status request");
-      Serial.println(reply);
-      reply = "";
-    }
-    if(text == "/buzz"){
-      buzzState = !buzzState;
-      digitalWrite(buzzerPin, buzzState);
-      Serial.println("Change buzzer state");
-      reply = "buzzer State:"+buzzState ; 
-      bot.sendMessage(CHAT_ID, reply, "");
-      reply = "";
-    }
-    if(text= "/restart"){
-       ESP.restart();
-       delay(1000);
     }
   }
 }
@@ -241,91 +151,112 @@ String sendPhotoTelegram() {
   String getBody = "";
 
   camera_fb_t * fb = NULL;
-  fb = esp_camera_fb_get();  
-  if(!fb) {
+  fb = esp_camera_fb_get();
+  if (!fb) {
     Serial.println("Camera capture failed");
     delay(1000);
     ESP.restart();
     return "Camera capture failed";
-  }  
-  
+  }
+
   Serial.println("Connect to " + String(myDomain));
 
 
   if (clientTCP.connect(myDomain, 443)) {
     Serial.println("Connection successful");
-    
-    String head = "--RandomNerdTutorials\r\nContent-Disposition: form-data; name=\"chat_id\"; \r\n\r\n" + CHAT_ID + "\r\n--RandomNerdTutorials\r\nContent-Disposition: form-data; name=\"photo\"; filename=\"esp32-cam.jpg\"\r\nContent-Type: image/jpeg\r\n\r\n";
-    String tail = "\r\n--RandomNerdTutorials--\r\n";
+
+    String head = "--c010blind3ngineer\r\nContent-Disposition: form-data; name=\"chat_id\"; \r\n\r\n" + CHAT_ID + "\r\n--c010blind3ngineer\r\nContent-Disposition: form-data; name=\"photo\"; filename=\"esp32-cam.jpg\"\r\nContent-Type: image/jpeg\r\n\r\n";
+    String tail = "\r\n--c010blind3ngineer--\r\n";
 
     uint16_t imageLen = fb->len;
     uint16_t extraLen = head.length() + tail.length();
     uint16_t totalLen = imageLen + extraLen;
-  
-    clientTCP.println("POST /bot"+BOTtoken+"/sendPhoto HTTP/1.1");
+
+    clientTCP.println("POST /bot" + BOTtoken + "/sendPhoto HTTP/1.1");
     clientTCP.println("Host: " + String(myDomain));
     clientTCP.println("Content-Length: " + String(totalLen));
-    clientTCP.println("Content-Type: multipart/form-data; boundary=RandomNerdTutorials");
+    clientTCP.println("Content-Type: multipart/form-data; boundary=c010blind3ngineer");
     clientTCP.println();
     clientTCP.print(head);
-  
+
     uint8_t *fbBuf = fb->buf;
     size_t fbLen = fb->len;
-    for (size_t n=0;n<fbLen;n=n+1024) {
-      if (n+1024<fbLen) {
+    for (size_t n = 0; n < fbLen; n = n + 1024) {
+      if (n + 1024 < fbLen) {
         clientTCP.write(fbBuf, 1024);
         fbBuf += 1024;
       }
-      else if (fbLen%1024>0) {
-        size_t remainder = fbLen%1024;
+      else if (fbLen % 1024 > 0) {
+        size_t remainder = fbLen % 1024;
         clientTCP.write(fbBuf, remainder);
       }
-    }  
-    
+    }
+
     clientTCP.print(tail);
-    
+
     esp_camera_fb_return(fb);
-    
+
     int waitTime = 10000;   // timeout 10 seconds
     long startTimer = millis();
     boolean state = false;
-    
-    while ((startTimer + waitTime) > millis()){
+
+    while ((startTimer + waitTime) > millis()) {
       Serial.print(".");
-      delay(100);      
+      delay(100);
       while (clientTCP.available()) {
         char c = clientTCP.read();
-        if (state==true) getBody += String(c);        
+        if (state == true) getBody += String(c);
         if (c == '\n') {
-          if (getAll.length()==0) state=true; 
+          if (getAll.length() == 0) state = true;
           getAll = "";
-        } 
+        }
         else if (c != '\r')
           getAll += String(c);
         startTimer = millis();
       }
-      if (getBody.length()>0) break;
+      if (getBody.length() > 0) break;
     }
     clientTCP.stop();
     Serial.println(getBody);
   }
   else {
-    getBody="Connected to api.telegram.org failed.";
+    getBody = "Connected to api.telegram.org failed.";
     Serial.println("Connected to api.telegram.org failed.");
   }
   return getBody;
 }
 
-void setup(){
-  WRITE_PERI_REG(RTC_CNTL_BROWN_OUT_REG, 0); 
+void setup() {
+  WRITE_PERI_REG(RTC_CNTL_BROWN_OUT_REG, 0);
   // Init Serial Monitor
   Serial.begin(115200);
 
   // Set LED Flash as output
   pinMode(FLASH_LED_PIN, OUTPUT);
-  pinMode(buzzerPin, OUTPUT);
   digitalWrite(FLASH_LED_PIN, flashState);
-  digitalWrite(buzzerPin,buzzState);
+
+  // Set PIR sensor as input and LED as output
+  pinMode(PIRsensor, INPUT);
+  pinMode(led, OUTPUT);
+
+  // Give some time for the PIR sensor to warm up
+  Serial.println("Waiting for the sensor to warm up on first boot");
+  delay(calibrationTime * 1000); // Time converted back to miliseconds
+
+  // Blink LED 3 times to indicate PIR sensor warmed up
+  digitalWrite(led, HIGH);
+  delay(500);
+  digitalWrite(led, LOW);
+  delay(500);
+  digitalWrite(led, HIGH);
+  delay(500);
+  digitalWrite(led, LOW);
+  delay(500);
+  digitalWrite(led, HIGH);
+  delay(500);
+  digitalWrite(led, LOW);
+  Serial.println("PIR sensor is ACTIVE");
+
   // Config and init the camera
   configInitCamera();
 
@@ -342,54 +273,39 @@ void setup(){
   }
   Serial.println();
   Serial.print("ESP32-CAM IP Address: ");
-  Serial.println(WiFi.localIP()); 
-  digitalWrite(FLASH_LED_PIN, HIGH);
-  delay(500);
-  digitalWrite(FLASH_LED_PIN, LOW);
+  Serial.println(WiFi.localIP());
 }
 
 void loop() {
-  digitalWrite(trigPin, LOW);
-  delayMicroseconds(2);
-  // Sets the trigPin on HIGH state for 10 micro seconds
-  digitalWrite(trigPin, HIGH);
-  delayMicroseconds(10);
-  digitalWrite(trigPin, LOW);
-  // Reads the echoPin, returns the sound wave travel time in microseconds
-  duration = pulseIn(echoPin, HIGH); 
-  // Calculate the distance
-  distanceCm = duration * SOUND_SPEED/2;
-  // Prints the distance in the Serial Monitor
-  Serial.print("Distance (cm): ");
-  Serial.println(distanceCm);
-  delay(250);
-  if (distanceCm < 90){
-    objFlag = true;
-    reply = "Distance:"+String(distanceCm) ; 
-    bot.sendMessage(CHAT_ID, reply, "");
-    reply = "";
+  val = digitalRead(PIRsensor);
+
+  if (val == HIGH) {
+    digitalWrite(led, HIGH);
+    if (PIRstate == LOW) {
+      // we have just turned on because movement is detected
+      Serial.println("Motion detected!");
+      delay(500);
+      Serial.println("Sending photo to Telegram");
+      sendPhotoTelegram();
+      PIRstate = HIGH;
+    }
   }
-  if(objFlag && (!personIn)){
-    personIn = true ;
-    objFlag = false ;
-    Serial.println("Preparing photo 0: Object Detected");
-    sendPhotoTelegram();
+  else {
+    digitalWrite(led, LOW);
+    if (PIRstate == HIGH) {
+      Serial.println("Motion ended!");
+      PIRstate = LOW;
     }
-    else if(objFlag && personIn){
-    unsigned long currentMillis = millis();
-     if (currentMillis - previousMillis_1 >= interval_1) {
-         previousMillis_1 = millis();
-         personIn = false ;
-         objFlag = false ;
-         Serial.println("Preparing photo 1: Object Detected");
-         sendPhotoTelegram();
-      }      
-    }
-  
+  }
   if (sendPhoto) {
     Serial.println("Preparing photo");
-    sendPhotoTelegram(); 
-    sendPhoto = false; 
+    digitalWrite(FLASH_LED_PIN, HIGH);
+    Serial.println("Flash state set to HIGH");
+    delay(500);
+    sendPhotoTelegram();
+    sendPhoto = false;
+    digitalWrite(FLASH_LED_PIN, LOW);
+    Serial.println("Flash state set to LOW");
   }
   if (millis() > lastTimeBotRan + botRequestDelay)  {
     int numNewMessages = bot.getUpdates(bot.last_message_received + 1);
@@ -400,4 +316,5 @@ void loop() {
     }
     lastTimeBotRan = millis();
   }
+
 }
