@@ -9,10 +9,10 @@
 #include <ArduinoJson.h>
 
 const char* ssid = "Ganesh";
-const char* password = "ganesh2000";
+const char* password = "HighHopes";
 
 // Initialize Telegram BOT
-String BOTtoken = "5734241556:AAGPSO1L7H4N8L8ViO8Js91W1wqrxR_1AQo";  // your Bot Token (Get from Botfather)
+String BOTtoken = "5951293863:AAFd_CMc7VpYbefObA7qnsSERqSvBCTkAo4";  // your Bot Token (Get from Botfather)
 
 // Use @myidbot to find out the chat ID of an individual or a group
 // Also note that you need to click "start" on a bot before it can
@@ -123,19 +123,19 @@ void handleNewMessages(int numNewMessages) {
     Serial.println(text);
 
     String from_name = bot.messages[i].from_name;
-    if ((text == "/start")||(text == "/start@Smart_Dora_bot")) {
+    if (((text == "/start")||(text == "/start@G5camBot") )||(text == "/start@Smart_Dora_bot")) {
       String welcome = "Welcome , " + from_name + "\n";
       welcome += "Use the following commands to interact with the ESP32-CAM \n";
       welcome += "/photo : takes a new photo\n";
-      welcome += "/flash : toggles flash LED \n";
+//    welcome += "/flash : toggles flash LED \n";
       bot.sendMessage(CHAT_ID, welcome, "");
     }
-    if ((text == "/flash")||(text == "/flash@Smart_Dora_bot")) {
+    if (((text == "/flash")||(text == "/flash@G5camBot") )||(text == "/flash@Smart_Dora_bot")) {
       flashState = !flashState;
       digitalWrite(FLASH_LED_PIN, flashState);
       Serial.println("Change flash LED state");
     }
-    if ((text == "/photo")||(text == "/photo@Smart_Dora_bot")){
+    if (((text == "/photo")||(text == "/photo@G5camBot") )||(text == "/photo@Smart_Dora_bot")){
       sendPhoto = true;
       Serial.println("New photo request");
     }
@@ -266,7 +266,7 @@ void setup() {
   clientTCP.setCACert(TELEGRAM_CERTIFICATE_ROOT); // Add root certificate for api.telegram.org
   while (WiFi.status() != WL_CONNECTED) {
     Serial.print(".");
-    delay(500);
+    delay(50);
   }
   Serial.println();
   Serial.print("ESP32-CAM IP Address: ");
